@@ -6,13 +6,7 @@ document.querySelector('#copy-citation').addEventListener('click',async()=>{cons
 // Keep silent rollouts moving only while visible; leave the narrated video manual.
 const demoVideos=[...document.querySelectorAll('.demo video')];
 const motionPreference=window.matchMedia('(prefers-reduced-motion: reduce)');
-let demosPaused=motionPreference.matches;
-const demoToggle=document.querySelector('#toggle-demos');
-function updateDemoButton(){demoToggle.textContent=demosPaused?'Play demos':'Pause demos';}
 function startDemo(video){video.muted=true;video.play().catch(()=>{/* Native controls remain available if autoplay is blocked. */});}
-const visibleDemos=new Set();
-const demoObserver=new IntersectionObserver(entries=>{for(const entry of entries){const video=entry.target;if(entry.isIntersecting){visibleDemos.add(video);if(!demosPaused)startDemo(video);}else{visibleDemos.delete(video);video.pause();}}},{threshold:0.15});
-for(const video of demoVideos){if(demosPaused){video.removeAttribute('autoplay');video.pause();}demoObserver.observe(video);}
-demoToggle.addEventListener('click',()=>{demosPaused=!demosPaused;for(const video of demoVideos){if(demosPaused)video.pause();else if(visibleDemos.has(video))startDemo(video);}updateDemoButton();});
-motionPreference.addEventListener('change',event=>{if(event.matches){demosPaused=true;demoVideos.forEach(video=>video.pause());updateDemoButton();}});
-updateDemoButton();
+const demoObserver=new IntersectionObserver(entries=>{for(const entry of entries){if(entry.isIntersecting){if(!motionPreference.matches)startDemo(entry.target);}else entry.target.pause();}},{threshold:0.15});
+for(const video of demoVideos){if(motionPreference.matches){video.removeAttribute('autoplay');video.pause();}demoObserver.observe(video);}
+motionPreference.addEventListener('change',event=>{if(event.matches)demoVideos.forEach(video=>video.pause());});
