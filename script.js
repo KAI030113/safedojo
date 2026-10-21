@@ -10,3 +10,57 @@ function startDemo(video){video.muted=true;video.play().catch(()=>{/* Native con
 const demoObserver=new IntersectionObserver(entries=>{for(const entry of entries){if(entry.isIntersecting){if(!motionPreference.matches)startDemo(entry.target);}else entry.target.pause();}},{threshold:0.15});
 for(const video of demoVideos){if(motionPreference.matches){video.removeAttribute('autoplay');video.pause();}demoObserver.observe(video);}
 motionPreference.addEventListener('change',event=>{if(event.matches)demoVideos.forEach(video=>video.pause());});
+
+// Section entrances are progressive enhancement: content stays visible without JS.
+const entrances = document.querySelectorAll('.hero > *, .demo, .intro, .figure, .steps > div, .results-summary, .table-scroll, #overview .wrap, .paper-section');
+const entranceObserver = new IntersectionObserver(entries => {
+  for (const entry of entries) {
+    if (!entry.isIntersecting) continue;
+    if (!motionPreference.matches) {
+      const animation = entry.target.animate([
+        {opacity:0,transform:'translateY(20px)'},
+        {opacity:1,transform:'translateY(0)'}
+      ], {duration:650,delay:Number(entry.target.dataset.entranceDelay || 0),easing:'cubic-bezier(.2,.7,.2,1)'});
+      motionPreference.addEventListener('change', () => animation.finish(), {once:true});
+    }
+    entranceObserver.unobserve(entry.target);
+  }
+}, {threshold:.08});
+entrances.forEach(el => entranceObserver.observe(el));
+document.querySelectorAll('.hero > *, .demo').forEach((el,i) => {el.dataset.entranceDelay=String((i%5)*55);});
+
+for (const video of demoVideos) {
+  const track = document.createElement('div');
+  track.className='demo-progress';track.setAttribute('aria-hidden','true');
+  const bar=document.createElement('i');track.append(bar);video.after(track);
+  video.addEventListener('timeupdate',()=>{bar.style.transform=`scaleX(${video.duration ? video.currentTime/video.duration : 0})`;});
+}
+
+const header=document.querySelector('.nav');
+const progress=document.createElement('div');progress.className='scroll-progress';progress.setAttribute('aria-hidden','true');header.append(progress);
+const navigation=[...header.querySelectorAll('nav a')];
+let scrollFrame=0;
+function updateNavigation(){
+  scrollFrame=0;
+  const height=document.documentElement.scrollHeight-innerHeight;
+  progress.style.transform=`scaleX(${height>0 ? Math.min(1,Math.max(0,scrollY/height)) : 0})`;
+  header.classList.toggle('scrolled',scrollY>12);
+  let current=null;
+  for(const link of navigation){const section=document.querySelector(link.hash);if(section && section.getBoundingClientRect().top<=innerHeight*.4)current=link;}
+  navigation.forEach(link=>{if(link===current)link.setAttribute('aria-current','location');else link.removeAttribute('aria-current');});
+}
+addEventListener('scroll',()=>{if(!scrollFrame)scrollFrame=requestAnimationFrame(updateNavigation);},{passive:true});
+addEventListener('resize',updateNavigation);updateNavigation();
+
+const methodSteps=[...document.querySelectorAll('.steps > div')];
+let methodVisible=false,stepTimer=null,stepIndex=0;
+function syncMethod(){
+  clearInterval(stepTimer);stepTimer=null;
+  methodSteps.forEach(el=>el.classList.remove('flow-active'));
+  if(!methodVisible || document.hidden || motionPreference.matches)return;
+  const highlight=()=>methodSteps.forEach((el,i)=>el.classList.toggle('flow-active',i===stepIndex));
+  highlight();stepTimer=setInterval(()=>{stepIndex=(stepIndex+1)%methodSteps.length;highlight();},2200);
+}
+new IntersectionObserver(([entry])=>{methodVisible=entry.isIntersecting;syncMethod();},{threshold:.2}).observe(document.querySelector('.steps'));
+document.addEventListener('visibilitychange',syncMethod);
+motionPreference.addEventListener('change',syncMethod);
